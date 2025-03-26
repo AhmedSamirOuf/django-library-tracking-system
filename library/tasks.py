@@ -1,3 +1,6 @@
+import datetime
+import logging
+
 from celery import shared_task
 from .models import Loan
 from django.core.mail import send_mail
@@ -18,3 +21,18 @@ def send_loan_notification(loan_id):
         )
     except Loan.DoesNotExist:
         pass
+
+
+@shared_task
+def check_overdue_loans():
+    try:
+        loans = Loan.objects.filter(is_returned=False, due_date__gt=datetime.date.today())
+        for loan in loans:
+            print("sending email")
+            send_loan_notification(loan.id)
+
+        return True
+    except:
+        #maybe we can push failed notification/checks in a queue to try and send them later
+        logging.warning("something went wrong please try again")
+        return False

@@ -1,3 +1,6 @@
+import logging
+from datetime import timedelta
+
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from .models import Author, Book, Member, Loan
@@ -16,7 +19,7 @@ class BookViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def loan(self, request, pk=None):
-        book = self.get_object()
+        book = Book.objects.get(pk)
         if book.available_copies < 1:
             return Response({'error': 'No available copies.'}, status=status.HTTP_400_BAD_REQUEST)
         member_id = request.data.get('member_id')
@@ -52,3 +55,21 @@ class MemberViewSet(viewsets.ModelViewSet):
 class LoanViewSet(viewsets.ModelViewSet):
     queryset = Loan.objects.all()
     serializer_class = LoanSerializer
+
+    @action(detail=True,methods=['POST'])
+    def extend_due_date(self,request,pk):
+        try:
+            body = request.json()
+            loan = Loan.objects.get(pk)
+            if loan.is_due_date():
+                additional_days = body.get("additional_days", 0)
+                if additional_days >0:
+                    loan.due_date = loan.due_date + timedelta(additional_days)
+                    loan.save()
+
+            return Response(loan, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logging.warning(f"error is =============> {e}")
+            return Response("something went wrond",status=status.HTTP_400_BAD_REQUEST)
+
